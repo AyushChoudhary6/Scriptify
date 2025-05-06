@@ -9,6 +9,7 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false)
   const [error, setError] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
+  const [browser, setBrowser] = useState('chrome') // Default browser for cookies
 
   // Reset copy success message after 3 seconds
   useEffect(() => {
@@ -33,15 +34,15 @@ function App() {
     setCopySuccess(false)
 
     try {
-      console.log('Sending request to backend with URL:', url)
+      console.log('Sending request to backend with URL:', url, 'using browser:', browser)
 
-      // Use the new JSON-based endpoint instead of FormData
+      // Use the new JSON-based endpoint with browser information
       const response = await fetch('http://localhost:8001/transcribe-json/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, browser }),
       })
 
       if (!response.ok) {
@@ -147,17 +148,31 @@ function App() {
               aria-label="YouTube URL input"
               className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/20 focus:outline-none focus:border-cyan-400 text-white placeholder-gray-400"
             />
-            <button
-              onClick={handleConvert}
-              disabled={isLoading}
-              aria-label="Convert video"
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-pink-500 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {isLoading ? 'Converting...' : 'Convert'}
-            </button>
+            <div className="flex gap-2">
+              <select
+                value={browser}
+                onChange={(e) => setBrowser(e.target.value)}
+                className="px-4 py-3 rounded-lg bg-white/5 border border-white/20 focus:outline-none focus:border-cyan-400 text-white"
+                aria-label="Select browser for cookies"
+              >
+                <option value="chrome">Chrome</option>
+                <option value="firefox">Firefox</option>
+                <option value="edge">Edge</option>
+                <option value="safari">Safari</option>
+                <option value="opera">Opera</option>
+              </select>
+              <button
+                onClick={handleConvert}
+                disabled={isLoading}
+                aria-label="Convert video"
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-pink-500 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {isLoading ? 'Converting...' : 'Convert'}
+              </button>
+            </div>
           </div>
           <p className="mt-4 text-sm text-gray-400">
-            Works with any public YouTube video. Just copy and paste the URL.
+            Works with any public YouTube video. Select your browser to use YouTube cookies for authentication.
           </p>
         </div>
 
