@@ -11,7 +11,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build: 
+       context: ./frontend\ text\ converter
+       dockerfile: Dockerfile
     container_name: scriptify-frontend
     ports:
       - "3000:80"
