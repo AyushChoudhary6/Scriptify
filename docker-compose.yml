@@ -12,7 +12,7 @@ services:
 
   frontend:
     build: 
-       context: ./frontend\ text\ converter
+       context: "./frontend text converter"
        dockerfile: Dockerfile
     container_name: scriptify-frontend
     ports:
