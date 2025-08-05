@@ -353,9 +353,15 @@ def enhance_transcript_with_gemini(transcript_data, video_info):
         if chapters:
             chapters_text = "\n📑 CHAPTER BREAKDOWN:\n"
             for i, chapter in enumerate(chapters, 1):
-                start_time = format_timestamp(chapter.get('start', 0))
-                end_time = format_timestamp(chapter.get('end', 0))
-                summary_text = chapter.get('summary', 'No summary available')
+                # Handle both dict and object access patterns
+                if hasattr(chapter, 'start'):
+                    start_time = format_timestamp(chapter.start)
+                    end_time = format_timestamp(chapter.end)
+                    summary_text = getattr(chapter, 'summary', 'No summary available')
+                else:
+                    start_time = format_timestamp(chapter.get('start', 0))
+                    end_time = format_timestamp(chapter.get('end', 0))
+                    summary_text = chapter.get('summary', 'No summary available')
                 chapters_text += f"\n{i}. [{start_time} - {end_time}] {summary_text}"
         
         # Build highlights section
@@ -473,9 +479,15 @@ def create_fallback_summary(transcript_data, video_info):
     
     if chapters:
         for i, chapter in enumerate(chapters, 1):
-            start_time = format_timestamp(chapter.get('start', 0))
-            end_time = format_timestamp(chapter.get('end', 0))
-            chapter_summary = chapter.get('summary', 'Content segment')
+            # Handle both dict and object access patterns
+            if hasattr(chapter, 'start'):
+                start_time = format_timestamp(chapter.start)
+                end_time = format_timestamp(chapter.end)
+                chapter_summary = getattr(chapter, 'summary', 'Content segment')
+            else:
+                start_time = format_timestamp(chapter.get('start', 0))
+                end_time = format_timestamp(chapter.get('end', 0))
+                chapter_summary = chapter.get('summary', 'Content segment')
             fallback_summary += f"\n### {i}. [{start_time} - {end_time}] {chapter_summary}\n"
     else:
         # If no chapters, create basic sections from transcript
