@@ -6,11 +6,29 @@ variables:
   DOCKER_IMAGE_BACKEND: ayushchoudhary6/scriptify-backend:latest
   DOCKER_IMAGE_FRONTEND: ayushchoudhary6/scriptify-frontend:latest
 
+# Global rules to ensure pipeline triggers
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 # 1️⃣ Build Backend
 build-backend:
   stage: build
   tags:
     - local
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  before_script:
+    - echo "Current branch:" $CI_COMMIT_BRANCH
+    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
+    - echo "Commit SHA:" $CI_COMMIT_SHA
+    - docker --version
   script:
     - echo "=== Building Backend Image ==="
     - docker build -t $DOCKER_IMAGE_BACKEND ./backend
@@ -22,6 +40,15 @@ build-frontend:
   stage: build
   tags:
     - local
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  before_script:
+    - echo "Current branch:" $CI_COMMIT_BRANCH
+    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
+    - docker --version
   script:
     - echo "=== Building Frontend Image ==="
     - docker build -t $DOCKER_IMAGE_FRONTEND ./frontend
@@ -33,6 +60,15 @@ deploy:
   stage: deploy
   tags:
     - local
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  before_script:
+    - echo "Current branch:" $CI_COMMIT_BRANCH
+    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
+    - kubectl version --client
   script:
     - echo "=== Deploying to Kubernetes ==="
     - kubectl apply -f k8s/
