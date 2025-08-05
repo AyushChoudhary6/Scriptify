@@ -15,6 +15,13 @@ spec:
   - http:
       paths:
       # API routes - backend endpoints
+      - path: /transcribe-summary
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 8000
       - path: /transcribe-json
         pathType: Prefix
         backend:

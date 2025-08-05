@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 # Define request model for JSON data
 class VideoRequest(BaseModel):
     url: str
+    browser: str = "chrome"  # Default browser for cookies
+
+# Enhanced request model for advanced summarization
+class EnhancedVideoRequest(BaseModel):
+    url: str
+    browser: str = "chrome"
+    summary_type: str = "comprehensive"  # comprehensive, brief, bullets, academic
+    include_timestamps: bool = True
+    include_chapters: bool = True
+    include_highlights: bool = True
 
 app = FastAPI()
 
@@ -254,25 +264,32 @@ def download_audio_and_get_info(url, output_folder="audio"):
         raise HTTPException(status_code=500, detail=f"Failed to process video: {str(e)}")
 
 def transcribe_with_assemblyai(audio_path):
-    """Transcribe audio file using AssemblyAI API"""
+    """Transcribe audio file using AssemblyAI API with advanced features"""
     try:
-        logger.info(f"Starting transcription with AssemblyAI for {audio_path}")
+        logger.info(f"Starting advanced transcription with AssemblyAI for {audio_path}")
         
         if not os.path.exists(audio_path):
             logger.error(f"Audio file not found: {audio_path}")
             raise HTTPException(status_code=500, detail="Audio file not found")
         
-        # Configure AssemblyAI with best speech model
+        # Configure AssemblyAI with advanced features
         config = aai.TranscriptionConfig(
             speech_model=aai.SpeechModel.best,
             punctuate=True,
-            auto_chapters=False,
-            speaker_labels=False
+            format_text=True,
+            auto_chapters=True,  # Enable chapter detection
+            speaker_labels=True,  # Enable speaker identification
+            auto_highlights=True,  # Enable key highlights
+            entity_detection=True,  # Enable entity detection
+            sentiment_analysis=True,  # Enable sentiment analysis
+            summarization=True,  # Enable AI summarization
+            summary_model=aai.SummarizationModel.informative,  # Use informative summary
+            summary_type=aai.SummarizationType.bullets,  # Bullet point format
         )
         
         # Create transcriber and transcribe the audio file
         transcriber = aai.Transcriber(config=config)
-        logger.info("Uploading and transcribing audio file...")
+        logger.info("Uploading and transcribing audio file with advanced features...")
         
         transcript = transcriber.transcribe(audio_path)
         
@@ -281,8 +298,18 @@ def transcribe_with_assemblyai(audio_path):
             logger.error(f"AssemblyAI transcription failed: {transcript.error}")
             raise HTTPException(status_code=500, detail=f"Transcription failed: {transcript.error}")
         
-        logger.info(f"Transcription complete with {len(transcript.text)} characters")
-        return transcript.text
+        logger.info(f"Advanced transcription complete with {len(transcript.text)} characters")
+        
+        # Return structured data instead of just text
+        return {
+            "text": transcript.text,
+            "summary": getattr(transcript, 'summary', None),
+            "chapters": getattr(transcript, 'chapters', []),
+            "auto_highlights": getattr(transcript, 'auto_highlights_result', None),
+            "entities": getattr(transcript, 'entities', []),
+            "sentiment_analysis": getattr(transcript, 'sentiment_analysis_results', []),
+            "words": getattr(transcript, 'words', []),  # For detailed timestamps
+        }
         
     except Exception as e:
         logger.error(f"Error in transcribe_with_assemblyai: {str(e)}")
@@ -293,10 +320,10 @@ def transcribe_with_assemblyai(audio_path):
             )
         raise HTTPException(status_code=500, detail=f"Failed to transcribe audio: {str(e)}")
 
-def enhance_transcript_with_gemini(transcript_text, video_info):
-    """Enhance the raw transcript with video context using Gemini API"""
+def enhance_transcript_with_gemini(transcript_data, video_info):
+    """Create an intelligent video summary with timestamps and structured content"""
     try:
-        logger.info("Enhancing transcript with video context using Gemini")
+        logger.info("Creating intelligent video summary with Gemini")
         
         # Create a Gemini model
         model = genai.GenerativeModel('gemini-1.5-flash')
@@ -314,31 +341,72 @@ def enhance_transcript_with_gemini(transcript_text, video_info):
         tags = ', '.join(video_info.get('tags', [])[:10]) if video_info.get('tags') else 'None'
         categories = ', '.join(video_info.get('categories', [])) if video_info.get('categories') else 'None'
         
-        # Create a prompt to enhance the transcript
+        # Extract data from transcript
+        raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
+        summary = transcript_data.get('summary', '') if isinstance(transcript_data, dict) else ''
+        chapters = transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else []
+        highlights = transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else None
+        
+        # Build chapters section
+        chapters_text = ""
+        if chapters:
+            chapters_text = "\n📑 CHAPTER BREAKDOWN:\n"
+            for i, chapter in enumerate(chapters, 1):
+                start_time = format_timestamp(chapter.get('start', 0))
+                end_time = format_timestamp(chapter.get('end', 0))
+                summary_text = chapter.get('summary', 'No summary available')
+                chapters_text += f"\n{i}. [{start_time} - {end_time}] {summary_text}"
+        
+        # Build highlights section
+        highlights_text = ""
+        if highlights and hasattr(highlights, 'results'):
+            highlights_text = "\n🔍 KEY HIGHLIGHTS:\n"
+            for highlight in highlights.results[:5]:  # Top 5 highlights
+                highlights_text += f"\n• {highlight.text} (Confidence: {highlight.rank:.1f})"
+        
+        # Create a comprehensive prompt for video summary
         prompt = f"""
-Please format and enhance this YouTube video transcript with proper structure and context. Here's the video information:
+Create a comprehensive, well-structured video summary from this YouTube video content. Focus on creating a professional summary that's easy to read and provides value to the viewer.
 
 VIDEO METADATA:
-Title: {video_info['title']}
-Creator: {video_info['uploader']}
-Duration: {duration_mins} minutes and {duration_secs} seconds
-Upload Date: {upload_date}
-Views: {video_info['view_count']}
-Categories: {categories}
-Tags: {tags}
+🎬 Title: {video_info['title']}
+👤 Creator: {video_info['uploader']}
+⏱️ Duration: {duration_mins} minutes and {duration_secs} seconds
+📅 Upload Date: {upload_date}
+👁️ Views: {video_info.get('view_count', 'N/A')}
+🏷️ Categories: {categories}
+🔖 Tags: {tags}
 
 RAW TRANSCRIPT:
-{transcript_text}
+{raw_text[:3000]}...  # Truncate for API limits
 
-Please:
-1. Add proper formatting with paragraphs and sections
-2. Add a brief introduction with video metadata
-3. Clean up any obvious transcription errors
-4. Add timestamps every few minutes
-5. Maintain the original meaning and content
-6. Make it easy to read and well-structured
+AI SUMMARY:
+{summary}
 
-Return the enhanced transcript in a clean, readable format.
+{chapters_text}
+
+{highlights_text}
+
+Please create a professional video summary with the following structure:
+
+1. **EXECUTIVE SUMMARY** (2-3 sentences about the main topic)
+
+2. **KEY TAKEAWAYS** (3-5 bullet points of main insights)
+
+3. **DETAILED BREAKDOWN WITH TIMESTAMPS** (organized by topics/sections with time markers)
+
+4. **ACTION ITEMS/RECOMMENDATIONS** (if applicable)
+
+5. **ADDITIONAL INSIGHTS** (interesting facts, quotes, or notable mentions)
+
+Format the output in clean Markdown with proper headings, timestamps in [MM:SS] format, and bullet points. Make it engaging and informative for someone who wants to quickly understand the video content.
+
+Focus on:
+- Clear, concise language
+- Logical flow and organization
+- Specific timestamps for key moments
+- Actionable insights where relevant
+- Professional presentation
 """
         
         # Generate enhanced content
@@ -354,16 +422,74 @@ Return the enhanced transcript in a clean, readable format.
                     enhanced_text = response.parts[0].text
         except Exception as e:
             logger.warning(f"Error enhancing transcript with Gemini: {str(e)}")
-            # Return original transcript if enhancement fails
-            return f"**{video_info['title']}**\n\n{transcript_text}"
+            # Return structured fallback if enhancement fails
+            return create_fallback_summary(transcript_data, video_info)
         
-        logger.info("Transcript enhancement complete")
+        logger.info("Intelligent video summary creation complete")
         return enhanced_text
         
     except Exception as e:
-        logger.warning(f"Error enhancing transcript: {str(e)}")
-        # Return original transcript with basic formatting if enhancement fails
-        return f"**{video_info['title']}**\n\n{transcript_text}"
+        logger.warning(f"Error creating video summary: {str(e)}")
+        # Return structured fallback if enhancement fails
+        return create_fallback_summary(transcript_data, video_info)
+
+def format_timestamp(seconds):
+    """Convert seconds to MM:SS format"""
+    if not isinstance(seconds, (int, float)):
+        return "00:00"
+    
+    minutes = int(seconds // 60)
+    seconds = int(seconds % 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+def create_fallback_summary(transcript_data, video_info):
+    """Create a basic structured summary if AI enhancement fails"""
+    
+    # Format duration
+    duration_mins = video_info['duration'] // 60
+    duration_secs = video_info['duration'] % 60
+    
+    # Extract text
+    raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
+    summary = transcript_data.get('summary', '') if isinstance(transcript_data, dict) else ''
+    chapters = transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else []
+    
+    # Create basic structured output
+    fallback_summary = f"""
+# 📋 VIDEO SUMMARY
+
+## 📹 Video Information
+- **Title:** {video_info['title']}
+- **Creator:** {video_info['uploader']}
+- **Duration:** {duration_mins}:{duration_secs:02d}
+- **Views:** {video_info.get('view_count', 'N/A')}
+
+## 📝 AI Summary
+{summary if summary else 'Summary not available'}
+
+## 📑 Content Breakdown
+"""
+    
+    if chapters:
+        for i, chapter in enumerate(chapters, 1):
+            start_time = format_timestamp(chapter.get('start', 0))
+            end_time = format_timestamp(chapter.get('end', 0))
+            chapter_summary = chapter.get('summary', 'Content segment')
+            fallback_summary += f"\n### {i}. [{start_time} - {end_time}] {chapter_summary}\n"
+    else:
+        # If no chapters, create basic sections from transcript
+        words_per_minute = 150
+        segment_length = 300  # 5 minutes
+        segments = len(raw_text) // (words_per_minute * segment_length // 60) or 1
+        
+        for i in range(min(segments, 5)):  # Max 5 segments
+            start_min = i * 5
+            end_min = min((i + 1) * 5, duration_mins)
+            fallback_summary += f"\n### [{start_min:02d}:00 - {end_min:02d}:00] Content Segment {i+1}\n"
+    
+    fallback_summary += f"\n## 📄 Full Transcript\n{raw_text}"
+    
+    return fallback_summary
 
 def cleanup_files(*file_paths):
     """Clean up temporary files"""
@@ -424,13 +550,29 @@ async def transcribe_json_endpoint(request: VideoRequest):
         # Download audio and get video info
         audio_file, video_info = download_audio_and_get_info(url)
         
-        # Transcribe with AssemblyAI (real transcription)
-        raw_transcript = transcribe_with_assemblyai(audio_file)
+        # Transcribe with AssemblyAI (advanced transcription with features)
+        transcript_data = transcribe_with_assemblyai(audio_file)
         
-        # Enhance with Gemini (optional formatting enhancement)
-        enhanced_transcript = enhance_transcript_with_gemini(raw_transcript, video_info)
+        # Create intelligent summary with Gemini
+        enhanced_summary = enhance_transcript_with_gemini(transcript_data, video_info)
         
-        return {"text": enhanced_transcript}
+        # Return comprehensive response
+        return {
+            "text": enhanced_summary,
+            "video_info": {
+                "title": video_info['title'],
+                "uploader": video_info['uploader'],
+                "duration": f"{video_info['duration'] // 60}:{video_info['duration'] % 60:02d}",
+                "view_count": video_info.get('view_count', 'N/A'),
+                "upload_date": video_info['upload_date']
+            },
+            "processing_info": {
+                "has_chapters": bool(transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else False),
+                "has_summary": bool(transcript_data.get('summary', '') if isinstance(transcript_data, dict) else False),
+                "has_highlights": bool(transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else False),
+                "word_count": len(transcript_data.get('text', '').split() if isinstance(transcript_data, dict) else str(transcript_data).split())
+            }
+        }
     except HTTPException as http_ex:
         # Handle HTTP exceptions by returning an error message
         logger.error(f"HTTP error in transcribe_json_endpoint: {http_ex.detail}")
@@ -442,3 +584,153 @@ async def transcribe_json_endpoint(request: VideoRequest):
     finally:
         # Clean up files regardless of success or failure
         cleanup_files(audio_file)
+
+# Enhanced endpoint for intelligent video summarization
+@app.post("/transcribe-summary/")
+async def transcribe_summary_endpoint(request: EnhancedVideoRequest):
+    """Advanced endpoint for intelligent video summarization with customizable options"""
+    audio_file = None
+    
+    try:
+        url = request.url
+        logger.info(f"Received enhanced summarization request for URL: {url}")
+        logger.info(f"Summary type: {request.summary_type}, Include timestamps: {request.include_timestamps}")
+        
+        # Validate the URL
+        if not url or (not "youtube.com" in url and not "youtu.be" in url):
+            logger.warning(f"Invalid URL provided: {url}")
+            return {"error": "Invalid YouTube URL provided"}
+        
+        # Download audio and get video info
+        audio_file, video_info = download_audio_and_get_info(url)
+        
+        # Transcribe with AssemblyAI (advanced transcription with features)
+        transcript_data = transcribe_with_assemblyai(audio_file)
+        
+        # Create customized summary based on request parameters
+        enhanced_summary = create_customized_summary(
+            transcript_data, 
+            video_info, 
+            request.summary_type,
+            request.include_timestamps,
+            request.include_chapters,
+            request.include_highlights
+        )
+        
+        # Return comprehensive response
+        return {
+            "text": enhanced_summary,
+            "video_info": {
+                "title": video_info['title'],
+                "uploader": video_info['uploader'],
+                "duration": f"{video_info['duration'] // 60}:{video_info['duration'] % 60:02d}",
+                "duration_seconds": video_info['duration'],
+                "view_count": video_info.get('view_count', 'N/A'),
+                "upload_date": video_info['upload_date'],
+                "description": video_info.get('description', '')[:500] + "..." if video_info.get('description', '') else 'N/A'
+            },
+            "processing_info": {
+                "summary_type": request.summary_type,
+                "has_chapters": bool(transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else False),
+                "has_summary": bool(transcript_data.get('summary', '') if isinstance(transcript_data, dict) else False),
+                "has_highlights": bool(transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else False),
+                "word_count": len(transcript_data.get('text', '').split() if isinstance(transcript_data, dict) else str(transcript_data).split()),
+                "chapter_count": len(transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else [])
+            },
+            "features_used": {
+                "timestamps": request.include_timestamps,
+                "chapters": request.include_chapters,
+                "highlights": request.include_highlights,
+                "ai_summary": True
+            }
+        }
+    except HTTPException as http_ex:
+        logger.error(f"HTTP error in transcribe_summary_endpoint: {http_ex.detail}")
+        return {"error": http_ex.detail}
+    except Exception as e:
+        logger.error(f"Error in transcribe_summary_endpoint: {str(e)}")
+        return {"error": str(e)}
+    finally:
+        # Clean up files regardless of success or failure
+        cleanup_files(audio_file)
+
+def create_customized_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights):
+    """Create a customized summary based on user preferences"""
+    try:
+        logger.info(f"Creating {summary_type} summary with custom options")
+        
+        # Create a Gemini model
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Format duration and metadata
+        duration_mins = video_info['duration'] // 60
+        duration_secs = video_info['duration'] % 60
+        
+        upload_date = video_info['upload_date']
+        if len(upload_date) == 8:  # YYYYMMDD format
+            upload_date = f"{upload_date[0:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
+        
+        # Extract data from transcript
+        raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
+        ai_summary = transcript_data.get('summary', '') if isinstance(transcript_data, dict) else ''
+        chapters = transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else []
+        highlights = transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else None
+        
+        # Build prompt based on summary type
+        if summary_type == "brief":
+            prompt_style = "Create a brief, concise summary in 2-3 paragraphs. Focus on the main points only."
+        elif summary_type == "bullets":
+            prompt_style = "Create a bullet-point summary with clear, actionable takeaways. Use bullet points and short sentences."
+        elif summary_type == "academic":
+            prompt_style = "Create an academic-style summary with formal language, structured analysis, and scholarly presentation."
+        else:  # comprehensive
+            prompt_style = "Create a comprehensive, detailed summary with full analysis and insights."
+        
+        # Build optional sections
+        timestamp_instruction = "Include specific timestamps in [MM:SS] format throughout the content." if include_timestamps else "Do not include specific timestamps."
+        chapter_instruction = "Include chapter breakdowns with time ranges." if include_chapters and chapters else "Focus on content flow without chapter divisions."
+        highlight_instruction = "Highlight the most important insights and quotes." if include_highlights else "Present information in a balanced manner."
+        
+        # Create comprehensive prompt
+        prompt = f"""
+{prompt_style}
+
+VIDEO INFORMATION:
+🎬 Title: {video_info['title']}
+👤 Creator: {video_info['uploader']}
+⏱️ Duration: {duration_mins}:{duration_secs:02d}
+📅 Upload Date: {upload_date}
+👁️ Views: {video_info.get('view_count', 'N/A')}
+
+AI SUMMARY: {ai_summary}
+
+CONTENT: {raw_text[:4000]}...
+
+INSTRUCTIONS:
+- {prompt_style}
+- {timestamp_instruction}
+- {chapter_instruction}
+- {highlight_instruction}
+- Use clear markdown formatting
+- Make it engaging and valuable for the reader
+- Maintain accuracy to the original content
+
+Please create the summary now:
+"""
+        
+        # Generate customized content
+        response = model.generate_content(prompt)
+        
+        # Extract and return the customized text
+        try:
+            if hasattr(response, 'text'):
+                return response.text
+            else:
+                return str(response)
+        except Exception as e:
+            logger.warning(f"Error creating customized summary: {str(e)}")
+            return create_fallback_summary(transcript_data, video_info)
+            
+    except Exception as e:
+        logger.warning(f"Error in create_customized_summary: {str(e)}")
+        return create_fallback_summary(transcript_data, video_info)

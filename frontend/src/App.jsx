@@ -10,6 +10,9 @@ function App() {
   const [error, setError] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
   const [browser, setBrowser] = useState('chrome') // Default browser for cookies
+  const [summaryType, setSummaryType] = useState('comprehensive') // New: summary type
+  const [includeTimestamps, setIncludeTimestamps] = useState(true) // New: timestamps option
+  const [videoInfo, setVideoInfo] = useState(null) // New: video information
 
   // Reset copy success message after 3 seconds
   useEffect(() => {
@@ -34,15 +37,23 @@ function App() {
     setCopySuccess(false)
 
     try {
-      console.log('Sending request to backend with URL:', url, 'using browser:', browser)
+      console.log('Sending request to backend with URL:', url, 'using enhanced summarization')
+      console.log('Summary type:', summaryType, 'Include timestamps:', includeTimestamps)
 
-      // Use the new JSON-based endpoint with browser information
-      const response = await fetch('/transcribe-json/', {
+      // Use the new enhanced summarization endpoint
+      const response = await fetch('/transcribe-summary/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url, browser }),
+        body: JSON.stringify({ 
+          url, 
+          browser,
+          summary_type: summaryType,
+          include_timestamps: includeTimestamps,
+          include_chapters: true,
+          include_highlights: true
+        }),
       })
 
       if (!response.ok) {
@@ -58,6 +69,7 @@ function App() {
       }
       
       setTranscript(data.text)
+      setVideoInfo(data.video_info) // Store video information
     } catch (error) {
       console.error('Error fetching transcript:', error)
       setError(error.message || 'Failed to convert video. Please try again.')
@@ -131,11 +143,11 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-purple-900 text-white flex flex-col items-center">
       {/* Main content */}
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <h1 className="text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-pink-300">
-          YouTube to Text Converter
+                <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">
+          YouTube to Intelligent Summary
         </h1>
-        <p className="text-center text-lg mb-12 text-gray-300">
-          Convert any YouTube video to text with just one click
+        <p className="text-xl text-gray-300">
+          Transform any YouTube video into a structured summary with timestamps, key insights, and chapter breakdowns
         </p>
 
         <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg shadow-2xl">
@@ -161,6 +173,26 @@ function App() {
                 <option value="safari">Safari</option>
                 <option value="opera">Opera</option>
               </select>
+              <select
+                value={summaryType}
+                onChange={(e) => setSummaryType(e.target.value)}
+                className="px-4 py-3 rounded-lg bg-white/5 border border-white/20 focus:outline-none focus:border-cyan-400 text-white"
+                aria-label="Select summary type"
+              >
+                <option value="comprehensive">📊 Comprehensive</option>
+                <option value="brief">⚡ Brief</option>
+                <option value="bullets">📋 Bullet Points</option>
+                <option value="academic">🎓 Academic</option>
+              </select>
+              <label className="flex items-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white">
+                <input
+                  type="checkbox"
+                  checked={includeTimestamps}
+                  onChange={(e) => setIncludeTimestamps(e.target.checked)}
+                  className="text-cyan-400 focus:ring-cyan-400"
+                />
+                <span className="text-sm">⏰ Timestamps</span>
+              </label>
               <button
                 onClick={handleConvert}
                 disabled={isLoading}
@@ -172,7 +204,7 @@ function App() {
             </div>
           </div>
           <p className="mt-4 text-sm text-gray-400">
-            Works with any public YouTube video. Select your browser to use YouTube cookies for authentication.
+            Get intelligent video summaries with timestamps, chapters, and key insights. Choose your summary style and browser for optimal results.
           </p>
         </div>
 
@@ -228,6 +260,20 @@ function App() {
             <>
               {transcript ? (
                 <div>
+                  {/* Video Information Display */}
+                  {videoInfo && (
+                    <div className="bg-gradient-to-r from-cyan-500/10 to-pink-500/10 rounded-lg p-4 mb-4 border border-cyan-500/20">
+                      <h3 className="text-lg font-semibold mb-3 text-cyan-300">📹 Video Information</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="text-gray-400">Title:</span> <span className="text-white">{videoInfo.title}</span></div>
+                        <div><span className="text-gray-400">Creator:</span> <span className="text-white">{videoInfo.uploader}</span></div>
+                        <div><span className="text-gray-400">Duration:</span> <span className="text-white">{videoInfo.duration}</span></div>
+                        <div><span className="text-gray-400">Views:</span> <span className="text-white">{videoInfo.view_count}</span></div>
+                        <div><span className="text-gray-400">Published:</span> <span className="text-white">{videoInfo.upload_date}</span></div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="bg-white/5 rounded-lg p-4 mb-4">
                     <div className="flex flex-col gap-3 mb-3">
                       <div className="flex justify-between items-center">
