@@ -77,5 +77,5 @@ deploy:
     - kubectl rollout status deployment/backend-deployment
     - kubectl rollout status deployment/frontend-deployment
     - echo "=== Deployment Complete ==="
-    - echo "=== Getting service URLs ==="
-    - kubectl get ingress
+    - echo "=== Running post-deployment setup ==="
+    - ./scripts/post-deploy.sh
