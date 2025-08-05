@@ -1,0 +1,45 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE_BACKEND: ayushchoudhary6/scriptify-backend:latest
+  DOCKER_IMAGE_FRONTEND: ayushchoudhary6/scriptify-frontend:latest
+
+# 1️⃣ Build Backend
+build-backend:
+  stage: build
+  tags:
+    - local
+  script:
+    - echo "=== Building Backend Image ==="
+    - docker build -t $DOCKER_IMAGE_BACKEND ./backend
+    - echo "=== Pushing Backend Image ==="
+    - docker push $DOCKER_IMAGE_BACKEND
+
+# 2️⃣ Build Frontend
+build-frontend:
+  stage: build
+  tags:
+    - local
+  script:
+    - echo "=== Building Frontend Image ==="
+    - docker build -t $DOCKER_IMAGE_FRONTEND ./frontend
+    - echo "=== Pushing Frontend Image ==="
+    - docker push $DOCKER_IMAGE_FRONTEND
+
+# 3️⃣ Deploy to Kubernetes
+deploy:
+  stage: deploy
+  tags:
+    - local
+  script:
+    - echo "=== Deploying to Kubernetes ==="
+    - kubectl apply -f k8s/
+    - kubectl rollout restart deployment/backend-deployment
+    - kubectl rollout restart deployment/frontend-deployment
+    - kubectl rollout status deployment/backend-deployment
+    - kubectl rollout status deployment/frontend-deployment
+    - echo "=== Deployment Complete ==="
+    - echo "=== Getting service URLs ==="
+    - kubectl get ingress

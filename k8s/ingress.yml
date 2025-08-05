@@ -14,34 +14,36 @@ spec:
   rules:
   - http:
       paths:
-      - path: /transcribe-json/
+      # API routes - backend endpoints
+      - path: /transcribe-json
         pathType: Prefix
         backend:
           service:
             name: backend-service
             port:
               number: 8000
-      - path: /transcribe/
+      - path: /transcribe
         pathType: Prefix
         backend:
           service:
             name: backend-service
             port:
               number: 8000
-      - path: /test/
+      - path: /test
         pathType: Prefix
         backend:
           service:
             name: backend-service
             port:
               number: 8000
-      - path: /echo/
+      - path: /echo
         pathType: Prefix
         backend:
           service:
             name: backend-service
             port:
               number: 8000
+      # Frontend route - catch all others
       - path: /
         pathType: Prefix
         backend:
