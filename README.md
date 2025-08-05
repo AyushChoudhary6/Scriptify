@@ -12,6 +12,7 @@ Convert any YouTube video to text using FastAPI, React, Docker, and Kubernetes.
 - Orchestrated with Kubernetes (Deployments, Services, Ingress)
 - Autoscaling with Horizontal Pod Autoscaler (HPA)
 - Secrets management for API keys
+- CI/CD pipeline with GitHub Actions
 
 ## Architecture
 - **Frontend:** React + Vite (Dockerized)
@@ -72,6 +73,19 @@ kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
 - Make sure Docker and Kubernetes are installed and running.
 - API keys are required for transcription and enhancement features.
 - HPA will autoscale backend pods based on CPU usage.
+- CI/CD pipeline requires Docker Hub credentials in GitHub secrets (`DOCKER_USERNAME`, `DOCKER_PASSWORD`).
+- Pipeline automatically builds and deploys on push to main branch.
+
+## CI/CD Pipeline
+The project includes GitHub Actions workflow that:
+- Builds Docker images for frontend and backend
+- Pushes images to Docker Hub
+- Deploys to Kubernetes cluster automatically
+
+### Setup GitHub Secrets
+Add these secrets to your GitHub repository:
+- `DOCKER_USERNAME`: Your Docker Hub username
+- `DOCKER_PASSWORD`: Your Docker Hub password/token
 
 ## Contact
 Made by Ayush Choudhary. For questions, open an issue or connect on LinkedIn.
