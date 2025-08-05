@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ayushchoudhary6/scriptify-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: gemini-api-key
+        - name: ASSEMBLYAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: assemblyai-api-key

@@ -37,7 +37,7 @@ function App() {
       console.log('Sending request to backend with URL:', url, 'using browser:', browser)
 
       // Use the new JSON-based endpoint with browser information
-      const response = await fetch('http://localhost:8001/transcribe-json/', {
+      const response = await fetch('/transcribe-json/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
