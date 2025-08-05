@@ -273,18 +273,19 @@ def transcribe_with_assemblyai(audio_path):
             raise HTTPException(status_code=500, detail="Audio file not found")
         
         # Configure AssemblyAI with advanced features
+        # Note: auto_chapters and summarization cannot be enabled simultaneously
+        # We prioritize chapters and use Gemini for enhanced summarization
         config = aai.TranscriptionConfig(
             speech_model=aai.SpeechModel.best,
             punctuate=True,
             format_text=True,
-            auto_chapters=True,  # Enable chapter detection
+            auto_chapters=True,  # Enable chapter detection (prioritized over built-in summarization)
             speaker_labels=True,  # Enable speaker identification
             auto_highlights=True,  # Enable key highlights
             entity_detection=True,  # Enable entity detection
             sentiment_analysis=True,  # Enable sentiment analysis
-            summarization=True,  # Enable AI summarization
-            summary_model=aai.SummarizationModel.informative,  # Use informative summary
-            summary_type=aai.SummarizationType.bullets,  # Bullet point format
+            # summarization disabled to avoid conflict with auto_chapters
+            # We'll use Gemini AI for superior summarization instead
         )
         
         # Create transcriber and transcribe the audio file
@@ -303,7 +304,7 @@ def transcribe_with_assemblyai(audio_path):
         # Return structured data instead of just text
         return {
             "text": transcript.text,
-            "summary": getattr(transcript, 'summary', None),
+            "summary": None,  # We'll generate this with Gemini instead
             "chapters": getattr(transcript, 'chapters', []),
             "auto_highlights": getattr(transcript, 'auto_highlights_result', None),
             "entities": getattr(transcript, 'entities', []),
