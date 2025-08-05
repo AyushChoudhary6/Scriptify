@@ -44,28 +44,59 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
           kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
 
-      - name: Configure kubectl
+      - name: Install metrics server
         run: |
-          # For cloud clusters, you'll need to add cluster credentials as secrets
-          # Example for different cloud providers:
-          # AWS EKS: aws eks update-kubeconfig --region us-west-2 --name my-cluster
-          # GCP GKE: gcloud container clusters get-credentials my-cluster --zone us-central1-a
-          # Azure AKS: az aks get-credentials --resource-group myResourceGroup --name myAKSCluster
-          echo "⚠️  Kubernetes cluster credentials needed in GitHub secrets"
-          echo "📋 Current setup is for demonstration - add real cluster config"
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          # Patch metrics server for Kind cluster
+          kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
 
-      - name: Deploy to Kubernetes
-        uses: azure/k8s-deploy@v4
-        with:
-          manifests: |
-            k8s/backend-deployment.yml
-            k8s/frontend-deployment.yml
-            k8s/backend-service.yml
-            k8s/frontend-service.yml
-            k8s/ingress.yml
-            k8s/hpa.yml
-          namespace: default
-        continue-on-error: true  # Won't fail if no cluster access
+      - name: Create API key secrets
+        run: |
+          # Create dummy secrets for CI/CD demo (replace with real secrets in production)
+          kubectl create secret generic backend-secrets \
+            --from-literal=assemblyai-api-key=demo-key-for-pipeline \
+            --from-literal=gemini-api-key=demo-key-for-pipeline
+
+      - name: Deploy services first
+        run: |
+          kubectl apply -f k8s/backend-service.yml
+          kubectl apply -f k8s/frontend-service.yml
+
+      - name: Deploy applications
+        run: |
+          kubectl apply -f k8s/backend-deployment.yml
+          kubectl apply -f k8s/frontend-deployment.yml
+
+      - name: Wait for deployments
+        run: |
+          echo "Waiting for backend deployment..."
+          kubectl rollout status deployment/backend-deployment --timeout=300s
+          echo "Waiting for frontend deployment..."
+          kubectl rollout status deployment/frontend-deployment --timeout=300s
+
+      - name: Deploy ingress and HPA
+        run: |
+          kubectl apply -f k8s/ingress.yml
+          kubectl apply -f k8s/hpa.yml
+
+      - name: Verify deployment
+        run: |
+          echo "=== Deployment Status ==="
+          kubectl get pods
+          kubectl get services
+          kubectl get ingress
+          kubectl get hpa
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Debugging failed deployment ==="
+          kubectl get pods -o wide
+          kubectl get events --sort-by=.metadata.creationTimestamp
+          echo "=== Backend pod logs ==="
+          kubectl logs -l app=backend --tail=50
+          echo "=== Frontend pod logs ==="
+          kubectl logs -l app=frontend --tail=50
 
       - name: Get App URL
         run: |
