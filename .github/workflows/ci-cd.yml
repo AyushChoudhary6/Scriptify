@@ -39,7 +39,14 @@ jobs:
           manifests: |
             k8s/backend-deployment.yml
             k8s/frontend-deployment.yml
-            k8s/services.yml
+            k8s/backend-service.yml
+            k8s/frontend-service.yml
             k8s/ingress.yml
             k8s/hpa.yml
           namespace: default
+
+      - name: Get App URL
+        run: |
+          echo "App deployed successfully!"
+          echo "Access via: kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80"
+          echo "Then visit: http://localhost:8080"
