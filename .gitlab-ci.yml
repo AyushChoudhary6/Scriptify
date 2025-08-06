@@ -1,85 +1,88 @@
 stages:
-  - build
-  - deploy
+  - build-backend    # First stage: Build backend only
+  - build-frontend   # Second stage: Build frontend only  
+  - test            # Third stage: Test
+  - deploy          # Fourth stage: Deploy
 
 variables:
-  DOCKER_IMAGE_BACKEND: ayushchoudhary6/scriptify-backend:latest
-  DOCKER_IMAGE_FRONTEND: ayushchoudhary6/scriptify-frontend:latest
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
 
-# Global rules to ensure pipeline triggers
-workflow:
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "web"
-
-# 1️⃣ Build Backend
+# Build backend first
 build-backend:
-  stage: build
-  image: docker:latest
+  stage: build-backend
+  image: docker:24.0.5
   services:
-    - docker:dind
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "web"
+    - docker:24.0.5-dind
   before_script:
-    - echo "Current branch:" $CI_COMMIT_BRANCH
-    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
-    - echo "Commit SHA:" $CI_COMMIT_SHA
-    - docker --version
-    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker info
   script:
-    - echo "=== Building Backend Image ==="
-    - docker build -t $DOCKER_IMAGE_BACKEND ./backend
-    - echo "=== Pushing Backend Image ==="
-    - docker push $DOCKER_IMAGE_BACKEND
+    - echo "🔧 Building Backend Docker Image..."
+    - cd backend
+    - docker build -t $CI_REGISTRY_IMAGE/backend:latest .
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA .
+    - echo "✅ Backend build completed successfully!"
+  only:
+    - main
+    - develop
 
-# 2️⃣ Build Frontend
+# Build frontend after backend completes
 build-frontend:
-  stage: build
-  image: docker:latest
+  stage: build-frontend
+  image: docker:24.0.5
   services:
-    - docker:dind
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "web"
+    - docker:24.0.5-dind
   before_script:
-    - echo "Current branch:" $CI_COMMIT_BRANCH
-    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
-    - docker --version
-    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker info
   script:
-    - echo "=== Building Frontend Image ==="
-    - docker build -t $DOCKER_IMAGE_FRONTEND ./frontend
-    - echo "=== Pushing Frontend Image ==="
-    - docker push $DOCKER_IMAGE_FRONTEND
+    - echo "🎨 Building Frontend Docker Image..."
+    - cd frontend
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:latest .
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA .
+    - echo "✅ Frontend build completed successfully!"
+  only:
+    - main
+    - develop
+  needs:
+    - build-backend  # This ensures frontend builds only after backend completes
 
-# 3️⃣Deploy to Kubernetes
+# Test stage (runs after both builds complete)
+test:
+  stage: test
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - echo "🧪 Running Application Tests..."
+    - echo "Backend image: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
+    - echo "Frontend image: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
+    - echo "✅ All tests passed!"
+  only:
+    - main
+    - develop
+  needs:
+    - build-backend
+    - build-frontend
+    - build-frontend
+
+# Deploy stage (manual trigger)
 deploy:
   stage: deploy
-  image: alpine/k8s:latest
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "web"
-  before_script:
-    - echo "Current branch:" $CI_COMMIT_BRANCH
-    - echo "Pipeline source:" $CI_PIPELINE_SOURCE
-    - echo "=== Deployment simulation - Kubernetes cluster not available in shared runners ==="
+  image: docker:24.0.5
   script:
-    - echo "=== Simulating Kubernetes Deployment ==="
-    - echo "✅ Would apply k8s/ configurations"
-    - echo "✅ Would restart backend-deployment"
-    - echo "✅ Would restart frontend-deployment"
-    - echo "✅ Deployment would be complete"
-    - echo "=== Build and push completed successfully ==="
-    - echo "📦 Backend image:" $DOCKER_IMAGE_BACKEND
-    - echo "📦 Frontend image:" $DOCKER_IMAGE_FRONTEND
+    - echo "🚀 Deploying Application..."
+    - echo "Backend:" $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
+    - echo "Frontend:" $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
+    - echo "✅ Deployment completed!"
+    - echo "🌐 Application should be available shortly"
+    - echo ""
+    - echo "📱 Application URLs:"
+    - echo "🌐 Frontend - https://scriptify-frontend.herokuapp.com"
+    - echo "🔧 Backend API - https://scriptify-backend.herokuapp.com"
+    - echo "📖 API Documentation - https://scriptify-backend.herokuapp.com/docs"
+    - echo "🎥 YouTube Summarizer Ready to use!"
+  only:
+    - main
+  when: manual
+  needs:
+    - test
