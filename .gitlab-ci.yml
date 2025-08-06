@@ -54,15 +54,14 @@ test:
     - docker:24.0.5-dind
   script:
     - echo "🧪 Running Application Tests..."
-    - echo "Backend image: $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
-    - echo "Frontend image: $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
+    - echo "Backend image:" "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
+    - echo "Frontend image:" "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
     - echo "✅ All tests passed!"
   only:
     - main
     - develop
   needs:
     - build-backend
-    - build-frontend
     - build-frontend
 
 # Deploy stage (manual trigger)
@@ -71,8 +70,8 @@ deploy:
   image: docker:24.0.5
   script:
     - echo "🚀 Deploying Application..."
-    - echo "Backend:" $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
-    - echo "Frontend:" $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA
+    - echo "Backend:" "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
+    - echo "Frontend:" "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
     - echo "✅ Deployment completed!"
     - echo "🌐 Application should be available shortly"
     - echo ""
@@ -85,4 +84,4 @@ deploy:
     - main
   when: manual
   needs:
-    - test
+    - test   # ✅ Corrected error here
