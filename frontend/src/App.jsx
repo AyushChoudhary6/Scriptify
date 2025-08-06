@@ -9,9 +9,9 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false)
   const [error, setError] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
-  const [browser, setBrowser] = useState('chrome') // Default browser for cookies
+  const [progress, setProgress] = useState(0) // Progress percentage
+  const [progressMessage, setProgressMessage] = useState('') // Progress message
   const [summaryType, setSummaryType] = useState('comprehensive') // New: summary type
-  const [includeTimestamps, setIncludeTimestamps] = useState(true) // New: timestamps option
   const [videoInfo, setVideoInfo] = useState(null) // New: video information
 
   // Reset copy success message after 3 seconds
@@ -35,10 +35,36 @@ function App() {
     setSidebarOpen(true)
     setError('')
     setCopySuccess(false)
+    setProgress(0)
+    setProgressMessage('Initializing...')
 
     try {
       console.log('Sending request to backend with URL:', url, 'using enhanced summarization')
-      console.log('Summary type:', summaryType, 'Include timestamps:', includeTimestamps)
+      console.log('Summary type:', summaryType)
+
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev < 90) {
+            const newProgress = prev + Math.random() * 15
+            if (newProgress < 15) {
+              setProgressMessage('Initializing audio processing...')
+            } else if (newProgress < 30) {
+              setProgressMessage('Extracting high-quality audio...')
+            } else if (newProgress < 45) {
+              setProgressMessage('Analyzing speech patterns...')
+            } else if (newProgress < 60) {
+              setProgressMessage('Transcribing audio content...')
+            } else if (newProgress < 75) {
+              setProgressMessage('Detecting chapters and highlights...')
+            } else {
+              setProgressMessage('Generating intelligent summary...')
+            }
+            return Math.min(newProgress, 90)
+          }
+          return prev
+        })
+      }, 1000)
 
       // Use the new enhanced summarization endpoint
       const response = await fetch('/transcribe-summary/', {
@@ -48,13 +74,16 @@ function App() {
         },
         body: JSON.stringify({ 
           url, 
-          browser,
           summary_type: summaryType,
-          include_timestamps: includeTimestamps,
-          include_chapters: true,
+          include_timestamps: true, // Always include timestamps
+          include_chapters: false,   // No chapters
           include_highlights: true
         }),
       })
+
+      clearInterval(progressInterval)
+      setProgress(95)
+      setProgressMessage('Finalizing summary...')
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -68,11 +97,22 @@ function App() {
         throw new Error(data.error)
       }
       
+      setProgress(100)
+      setProgressMessage('Complete!')
       setTranscript(data.text)
       setVideoInfo(data.video_info) // Store video information
+      
+      // Clear progress after a delay
+      setTimeout(() => {
+        setProgress(0)
+        setProgressMessage('')
+      }, 2000)
+      
     } catch (error) {
       console.error('Error fetching transcript:', error)
       setError(error.message || 'Failed to convert video. Please try again.')
+      setProgress(0)
+      setProgressMessage('')
     } finally {
       setLoading(false)
     }
@@ -89,14 +129,14 @@ function App() {
   }
 
   const handleDownload = () => {
-    // Create a blob with the transcript text
+    // Create a blob with the summary text
     const blob = new Blob([transcript], { type: 'text/plain' })
     // Create a URL for the blob
     const url = URL.createObjectURL(blob)
     // Create a temporary link element
     const a = document.createElement('a')
     a.href = url
-    a.download = 'transcript.txt'
+    a.download = 'video-summary.txt'
     // Append the link to the body
     document.body.appendChild(a)
     // Click the link to trigger the download
@@ -147,7 +187,7 @@ function App() {
           YouTube to Intelligent Summary
         </h1>
         <p className="text-xl text-gray-300">
-          Transform any YouTube video into a structured summary with timestamps, key insights, and chapter breakdowns
+          Transform any YouTube video into a comprehensive intelligent summary with timestamps, key insights, and detailed analysis
         </p>
 
         <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg shadow-2xl">
@@ -162,18 +202,6 @@ function App() {
             />
             <div className="flex gap-2">
               <select
-                value={browser}
-                onChange={(e) => setBrowser(e.target.value)}
-                className="px-4 py-3 rounded-lg bg-white/5 border border-white/20 focus:outline-none focus:border-cyan-400 text-white"
-                aria-label="Select browser for cookies"
-              >
-                <option value="chrome">Chrome</option>
-                <option value="firefox">Firefox</option>
-                <option value="edge">Edge</option>
-                <option value="safari">Safari</option>
-                <option value="opera">Opera</option>
-              </select>
-              <select
                 value={summaryType}
                 onChange={(e) => setSummaryType(e.target.value)}
                 className="px-4 py-3 rounded-lg bg-white/5 border border-white/20 focus:outline-none focus:border-cyan-400 text-white"
@@ -184,15 +212,6 @@ function App() {
                 <option value="bullets">📋 Bullet Points</option>
                 <option value="academic">🎓 Academic</option>
               </select>
-              <label className="flex items-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white">
-                <input
-                  type="checkbox"
-                  checked={includeTimestamps}
-                  onChange={(e) => setIncludeTimestamps(e.target.checked)}
-                  className="text-cyan-400 focus:ring-cyan-400"
-                />
-                <span className="text-sm">⏰ Timestamps</span>
-              </label>
               <button
                 onClick={handleConvert}
                 disabled={isLoading}
@@ -204,7 +223,7 @@ function App() {
             </div>
           </div>
           <p className="mt-4 text-sm text-gray-400">
-            Get intelligent video summaries with timestamps, chapters, and key insights. Choose your summary style and browser for optimal results.
+            Get comprehensive intelligent video summaries with automatic timestamps, chapters, and key insights. Our AI analyzes the complete audio content to provide detailed, accurate summaries.
           </p>
         </div>
 
@@ -218,13 +237,13 @@ function App() {
             </div>
             <div className="bg-white/5 p-6 rounded-lg">
               <div className="text-cyan-300 text-xl mb-2">2</div>
-              <h3 className="font-medium mb-2">Click Convert</h3>
-              <p className="text-sm text-gray-400">Our system will analyze the video and extract the transcript</p>
+              <h3 className="font-medium mb-2">AI Analysis</h3>
+              <p className="text-sm text-gray-400">Our AI analyzes the complete audio content and generates comprehensive summaries</p>
             </div>
             <div className="bg-white/5 p-6 rounded-lg">
               <div className="text-cyan-300 text-xl mb-2">3</div>
-              <h3 className="font-medium mb-2">Get Transcript</h3>
-              <p className="text-sm text-gray-400">View, copy, or download the transcript of the video for your use</p>
+              <h3 className="font-medium mb-2">Get Summary</h3>
+              <p className="text-sm text-gray-400">Receive a detailed, intelligent summary with timestamps and key insights</p>
             </div>
           </div>
         </div>
@@ -239,10 +258,10 @@ function App() {
       >
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Video Transcript</h2>
+            <h2 className="text-2xl font-bold">Intelligent Summary</h2>
             <button 
               onClick={() => setSidebarOpen(false)} 
-              aria-label="Close transcript sidebar"
+              aria-label="Close summary sidebar"
               className="text-gray-400 hover:text-white"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -253,8 +272,32 @@ function App() {
           
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400" role="status"></div>
-              <p className="mt-4 text-gray-400">Converting video to text...</p>
+              {/* Enhanced Progress Indicator */}
+              <div className="w-full max-w-md mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-cyan-300">Processing Video</span>
+                  <span className="text-sm font-medium text-cyan-300">{Math.round(progress)}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2.5">
+                  <div 
+                    className="bg-gradient-to-r from-cyan-400 to-pink-500 h-2.5 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-center text-gray-400 mt-3 text-sm">{progressMessage}</p>
+              </div>
+              
+              {/* Animated Processing Icon */}
+              <div className="relative">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400" role="status"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              
+              <p className="mt-4 text-gray-400 text-center max-w-sm">
+                Our AI is analyzing your video to create an intelligent summary with timestamps and key insights...
+              </p>
             </div>
           ) : (
             <>
@@ -277,7 +320,7 @@ function App() {
                   <div className="bg-white/5 rounded-lg p-4 mb-4">
                     <div className="flex flex-col gap-3 mb-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-300 font-medium">Transcript</span>
+                        <span className="text-sm text-gray-300 font-medium">Summary</span>
                         {copySuccess && (
                           <span className="text-xs text-green-400" role="status">✓ Copied to clipboard!</span>
                         )}
@@ -285,17 +328,17 @@ function App() {
                       <div className="flex gap-2">
                         <button 
                           onClick={handleCopy}
-                          aria-label="Copy transcript to clipboard"
+                          aria-label="Copy summary to clipboard"
                           className="text-sm bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 rounded hover:opacity-90 transition-all flex-1"
                         >
-                          Copy to Clipboard
+                          Copy Summary
                         </button>
                         <button 
                           onClick={handleDownload}
-                          aria-label="Download transcript as text file"
+                          aria-label="Download summary as text file"
                           className="text-sm bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded hover:opacity-90 transition-all flex-1"
                         >
-                          Download as Text
+                          Download Summary
                         </button>
                       </div>
                     </div>
@@ -306,7 +349,7 @@ function App() {
                 </div>
               ) : (
                 <div className="text-center text-gray-400 py-12">
-                  No transcript available yet. Convert a video to see the transcript.
+                  No summary available yet. Convert a video to see the intelligent summary.
                 </div>
               )}
               {error && (

@@ -238,189 +238,52 @@ def format_timestamp(seconds):
     seconds = int(seconds % 60)
     return f"{minutes:02d}:{seconds:02d}"
 
-def create_intelligent_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights):
-    """Create an intelligent summary using built-in text processing when AI API is not available"""
-    
-    # Extract text and metadata
-    raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
-    highlights = transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else None
-    
-    # Format duration and metadata
-    duration_mins = video_info['duration'] // 60
-    duration_secs = video_info['duration'] % 60
-    
-    upload_date = video_info['upload_date']
-    if len(upload_date) == 8:  # YYYYMMDD format
-        upload_date = f"{upload_date[0:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
-    
-    # Intelligent content extraction from transcript
-    def extract_key_points(text):
-        """Extract key points from transcript using keyword detection and sentence analysis"""
-        sentences = [s.strip() for s in text.replace('!', '.').replace('?', '.').split('.') if s.strip() and len(s.strip()) > 20]
-        
-        # Keywords that indicate important content
-        important_keywords = [
-            'roadmap', 'career', 'salary', 'job', 'skills', 'learn', 'important', 'key', 'steps',
-            'requirement', 'experience', 'tips', 'advice', 'strategy', 'guide', 'tutorial',
-            'course', 'certification', 'project', 'portfolio', 'interview', 'company',
-            'technology', 'framework', 'programming', 'development', 'engineering',
-            'start', 'build', 'create', 'understand', 'practice', 'focus', 'avoid'
-        ]
-        
-        # Score sentences based on keyword presence and structure
-        scored_sentences = []
-        for sentence in sentences:
-            score = 0
-            sentence_lower = sentence.lower()
-            
-            # Check for important keywords
-            for keyword in important_keywords:
-                if keyword in sentence_lower:
-                    score += 2
-            
-            # Boost sentences with numbers (often contain specific advice)
-            if any(char.isdigit() for char in sentence):
-                score += 1
-            
-            # Boost sentences with action words
-            action_words = ['start', 'learn', 'build', 'create', 'develop', 'practice', 'focus', 'avoid', 'understand']
-            for action in action_words:
-                if action in sentence_lower:
-                    score += 1
-            
-            if score > 0:
-                scored_sentences.append((sentence, score))
-        
-        # Sort by score and return top sentences
-        scored_sentences.sort(key=lambda x: x[1], reverse=True)
-        return [sentence for sentence, score in scored_sentences[:8]]  # Top 8 key points
-    
-    key_points = extract_key_points(raw_text)
-    
-    # Build summary based on type - simplified without chapters
-    if summary_type == "comprehensive":
-        summary = f"""# 🎥 {video_info['title']}
-
-## 📹 Video Overview
-- **Creator:** {video_info['uploader']}
-- **Duration:** {duration_mins}:{duration_secs:02d}
-- **Upload Date:** {upload_date}
-- **Views:** {video_info.get('view_count', 'N/A'):,} views
-
-## 🎯 Key Insights & Takeaways
-
-"""
-        for i, point in enumerate(key_points, 1):
-            summary += f"**{i}.** {point}\n\n"
-                
-    elif summary_type == "brief":
-        summary = f"""# 📝 {video_info['title']} - Summary
-
-**Creator:** {video_info['uploader']} | **Duration:** {duration_mins}:{duration_secs:02d} | **Views:** {video_info.get('view_count', 'N/A'):,}
-
-## 🔑 Main Points:
-"""
-        for point in key_points[:5]:  # Top 5 for brief
-            summary += f"• {point}\n\n"
-            
-    elif summary_type == "bullets":
-        summary = f"""# 📋 {video_info['title']} - Key Points
-
-**By {video_info['uploader']}** • {duration_mins}:{duration_secs:02d} • {video_info.get('view_count', 'N/A'):,} views
-
-## 🔑 Essential Takeaways:
-"""
-        for point in key_points:
-            summary += f"• {point}\n\n"
-            
-    else:  # academic
-        summary = f"""# 📚 {video_info['title']} - Analysis
-
-## Abstract
-This analysis examines a {duration_mins}-minute video by {video_info['uploader']}, published on {upload_date}. The content focuses on career guidance and technical skill development.
-
-## Key Findings:
-"""
-        for i, point in enumerate(key_points, 1):
-            summary += f"{i}. {point}\n\n"
-    
-    # Add highlights if available and requested
-    if include_highlights and highlights:
-        if hasattr(highlights, 'results') and highlights.results:
-            summary += "\n## ⭐ AI-Detected Highlights:\n"
-            for highlight in highlights.results[:3]:  # Top 3 highlights
-                if hasattr(highlight, 'text'):
-                    summary += f"• {highlight.text}\n\n"
-    
-    # Add timestamps if requested
-    if include_timestamps and summary_type in ["comprehensive", "academic"]:
-        summary += "\n## ⏱️ Key Timestamps:\n"
-        num_points = min(len(key_points), 5)
-        for i in range(num_points):
-            time_seconds = (video_info['duration'] * i) // num_points
-            timestamp = format_timestamp(time_seconds)
-            summary += f"**[{timestamp}]** {key_points[i][:100]}...\n\n"
-    
-    # Add conclusion based on type
-    if summary_type == "comprehensive":
-        summary += f"""## 🎯 Summary
-This {duration_mins}-minute video provides actionable insights for career development. The content focuses on practical advice and specific strategies for achieving professional goals.
-
-**Watch Time Worth:** ⭐⭐⭐⭐ - Highly recommended for career-focused learning."""
-    elif summary_type == "academic":
-        summary += """## Conclusion
-The video demonstrates effective knowledge transfer through structured content delivery, focusing on practical career guidance with actionable recommendations."""
-    else:
-        summary += f"\n---\n*Video contains {len(key_points)} key insights • {duration_mins}:{duration_secs:02d} runtime*"
-    
-    return summary
-
 def create_customized_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights):
     """Create a customized summary based on user preferences"""
     try:
         logger.info(f"Creating {summary_type} summary with custom options")
         
-        # Check if Gemini API key is available
-        if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
-            # Create a Gemini model
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            # Format duration and metadata
-            duration_mins = video_info['duration'] // 60
-            duration_secs = video_info['duration'] % 60
-            
-            upload_date = video_info['upload_date']
-            if len(upload_date) == 8:  # YYYYMMDD format
-                upload_date = f"{upload_date[0:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
-            
-            # Extract data from transcript
-            raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
-            highlights = transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else None
-            
-            # Build prompt based on summary type
-            if summary_type == "brief":
-                prompt_style = """Create a concise but comprehensive summary in 3-4 well-structured paragraphs. 
-                Focus on the main points and key insights. Include the most important timestamps and actionable takeaways.
-                Aim for 300-500 words that capture the essence of the video."""
-            elif summary_type == "bullets":
-                prompt_style = """Create a bullet-point summary with clear, actionable takeaways. 
-                Use hierarchical bullet points with main topics and sub-points. Include timestamps for each major section.
-                Focus on practical information and key insights in an easy-to-scan format."""
-            elif summary_type == "academic":
-                prompt_style = """Create an academic-style analysis with formal language, structured analysis, and scholarly presentation.
-                Include detailed analysis, context, methodology discussions, and comprehensive coverage of all topics.
-                Present information with proper structure, evidence, and academic rigor."""
-            else:  # comprehensive
-                prompt_style = """Create a comprehensive, detailed summary with full analysis and insights.
-                Include ALL important information, detailed explanations, context, and practical applications.
-                This should be a complete resource covering 90%+ of the video's value with thorough analysis."""
-            
-            # Build optional sections
-            timestamp_instruction = "Include specific timestamps in [MM:SS] format throughout the content." if include_timestamps else "Do not include specific timestamps."
-            highlight_instruction = "Highlight the most important insights and quotes." if include_highlights else "Present information in a balanced manner."
-            
-            # Create comprehensive prompt
-            prompt = f"""
+        # Create a Gemini model
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Format duration and metadata
+        duration_mins = video_info['duration'] // 60
+        duration_secs = video_info['duration'] % 60
+        
+        upload_date = video_info['upload_date']
+        if len(upload_date) == 8:  # YYYYMMDD format
+            upload_date = f"{upload_date[0:4]}-{upload_date[4:6]}-{upload_date[6:8]}"
+        
+        # Extract data from transcript
+        raw_text = transcript_data.get('text', '') if isinstance(transcript_data, dict) else str(transcript_data)
+        chapters = transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else []
+        highlights = transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else None
+        
+        # Build prompt based on summary type
+        if summary_type == "brief":
+            prompt_style = """Create a concise but comprehensive summary in 3-4 well-structured paragraphs. 
+            Focus on the main points and key insights. Include the most important timestamps and actionable takeaways.
+            Aim for 300-500 words that capture the essence of the video."""
+        elif summary_type == "bullets":
+            prompt_style = """Create a bullet-point summary with clear, actionable takeaways. 
+            Use hierarchical bullet points with main topics and sub-points. Include timestamps for each major section.
+            Focus on practical information and key insights in an easy-to-scan format."""
+        elif summary_type == "academic":
+            prompt_style = """Create an academic-style analysis with formal language, structured analysis, and scholarly presentation.
+            Include detailed analysis, context, methodology discussions, and comprehensive coverage of all topics.
+            Present information with proper structure, evidence, and academic rigor."""
+        else:  # comprehensive
+            prompt_style = """Create a comprehensive, detailed summary with full analysis and insights.
+            Include ALL important information, detailed explanations, context, and practical applications.
+            This should be a complete resource covering 90%+ of the video's value with thorough analysis."""
+        
+        # Build optional sections
+        timestamp_instruction = "Include specific timestamps in [MM:SS] format throughout the content." if include_timestamps else "Do not include specific timestamps."
+        chapter_instruction = "Include chapter breakdowns with time ranges." if include_chapters and chapters else "Focus on content flow without chapter divisions."
+        highlight_instruction = "Highlight the most important insights and quotes." if include_highlights else "Present information in a balanced manner."
+        
+        # Create comprehensive prompt
+        prompt = f"""
 You are an expert content analyst specializing in video content summarization. Analyze this YouTube video and create a high-quality summary.
 
 {prompt_style}
@@ -435,8 +298,12 @@ VIDEO INFORMATION:
 FULL TRANSCRIPT FOR ANALYSIS:
 {raw_text[:5000]}...
 
+AI-DETECTED CHAPTERS:
+{', '.join([f"[{format_timestamp(ch.get('start', 0) if isinstance(ch, dict) else getattr(ch, 'start', 0))}] {ch.get('summary', '') if isinstance(ch, dict) else getattr(ch, 'summary', '')}" for ch in chapters[:5]]) if chapters else 'No chapters detected'}
+
 REQUIREMENTS:
 - {timestamp_instruction}
+- {chapter_instruction}  
 - {highlight_instruction}
 - Use clear markdown formatting with proper headings
 - Ensure the summary contains ALL important information from the video
@@ -448,26 +315,23 @@ The summary should help someone understand 80-90% of the video's value and decid
 
 Create the summary now:
 """
-            
-            # Generate customized content
-            response = model.generate_content(prompt)
-            
-            # Extract and return the customized text
-            try:
-                if hasattr(response, 'text'):
-                    return response.text
-                else:
-                    return str(response)
-            except Exception as e:
-                logger.warning(f"Error creating customized summary: {str(e)}")
-                return create_intelligent_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights)
-        else:
-            logger.info("Gemini API key not configured, using intelligent summary generator")
-            return create_intelligent_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights)
+        
+        # Generate customized content
+        response = model.generate_content(prompt)
+        
+        # Extract and return the customized text
+        try:
+            if hasattr(response, 'text'):
+                return response.text
+            else:
+                return str(response)
+        except Exception as e:
+            logger.warning(f"Error creating customized summary: {str(e)}")
+            return create_fallback_summary(transcript_data, video_info)
             
     except Exception as e:
         logger.warning(f"Error in create_customized_summary: {str(e)}")
-        return create_intelligent_summary(transcript_data, video_info, summary_type, include_timestamps, include_chapters, include_highlights)
+        return create_fallback_summary(transcript_data, video_info)
 
 def create_fallback_summary(transcript_data, video_info):
     """Create a basic structured summary if AI enhancement fails"""
@@ -562,7 +426,7 @@ async def transcribe_summary_endpoint(request: EnhancedVideoRequest):
             request.include_highlights
         )
         
-        # Return comprehensive response with summary only
+        # Return comprehensive response
         return {
             "text": enhanced_summary,
             "video_info": {
@@ -576,11 +440,11 @@ async def transcribe_summary_endpoint(request: EnhancedVideoRequest):
             },
             "processing_info": {
                 "summary_type": request.summary_type,
-                "has_chapters": False,  # Chapters removed
+                "has_chapters": bool(transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else False),
                 "has_summary": bool(transcript_data.get('summary', '') if isinstance(transcript_data, dict) else False),
                 "has_highlights": bool(transcript_data.get('auto_highlights', None) if isinstance(transcript_data, dict) else False),
                 "word_count": len(transcript_data.get('text', '').split() if isinstance(transcript_data, dict) else str(transcript_data).split()),
-                "chapter_count": 0  # No chapters
+                "chapter_count": len(transcript_data.get('chapters', []) if isinstance(transcript_data, dict) else [])
             },
             "features_used": {
                 "timestamps": request.include_timestamps,
