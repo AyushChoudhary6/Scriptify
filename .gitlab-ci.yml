@@ -69,10 +69,16 @@ deploy:
     - echo "Stopping existing containers if running..."
     - docker stop scriptify-backend scriptify-frontend || true
     - docker rm scriptify-backend scriptify-frontend || true
+    - echo "Removing existing Docker network if exists..."
+    - docker network rm scriptify-network || true
+    - echo "Creating Docker network for container communication..."
+    - docker network create scriptify-network
     - echo "Starting Backend on localhost:8000..."
-    - docker run -d --name scriptify-backend -p 8000:8000 scriptify-backend:latest
+    - docker run -d --name scriptify-backend --network scriptify-network -p 8000:8000 scriptify-backend:latest
+    - echo "Waiting for backend to start..."
+    - sleep 5
     - echo "Starting Frontend on localhost:3000..."
-    - docker run -d --name scriptify-frontend -p 3000:80 scriptify-frontend:latest
+    - docker run -d --name scriptify-frontend --network scriptify-network -p 3000:80 scriptify-frontend:latest
     - echo "✅ Deployment completed!"
     - echo "🌐 Application is now running on localhost"
     - echo ""
