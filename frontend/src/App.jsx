@@ -101,6 +101,7 @@ function App() {
       setProgressMessage('Complete!')
       setTranscript(data.text)
       setVideoInfo(data.video_info) // Store video information
+      setError('') // Clear any previous errors on successful completion
       
       // Clear progress after a delay
       setTimeout(() => {
