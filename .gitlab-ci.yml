@@ -2,7 +2,7 @@ stages:
   - build-backend    # First stage: Build backend only
   - build-frontend   # Second stage: Build frontend only  
   - test            # Third stage: Test
-  - deploy          # Fourth stage: Deploy
+  - deploy          # Fourth stage: Deploy automatically
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -11,16 +11,14 @@ variables:
 # Build backend first
 build-backend:
   stage: build-backend
-  image: docker:24.0.5
-  services:
-    - docker:24.0.5-dind
+  tags:
+    - local
   before_script:
     - docker info
   script:
     - echo "🔧 Building Backend Docker Image..."
     - cd backend
-    - docker build -t $CI_REGISTRY_IMAGE/backend:latest .
-    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA .
+    - docker build -t scriptify-backend:latest .
     - echo "✅ Backend build completed successfully!"
   only:
     - main
@@ -29,16 +27,14 @@ build-backend:
 # Build frontend after backend completes
 build-frontend:
   stage: build-frontend
-  image: docker:24.0.5
-  services:
-    - docker:24.0.5-dind
+  tags:
+    - local
   before_script:
     - docker info
   script:
     - echo "🎨 Building Frontend Docker Image..."
     - cd frontend
-    - docker build -t $CI_REGISTRY_IMAGE/frontend:latest .
-    - docker build -t $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA .
+    - docker build -t scriptify-frontend:latest .
     - echo "✅ Frontend build completed successfully!"
   only:
     - main
@@ -49,13 +45,12 @@ build-frontend:
 # Test stage (runs after both builds complete)
 test:
   stage: test
-  image: docker:24.0.5
-  services:
-    - docker:24.0.5-dind
+  tags:
+    - local
   script:
     - echo "🧪 Running Application Tests..."
-    - echo "Backend image:" "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
-    - echo "Frontend image:" "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
+    - echo "Backend image scriptify-backend:latest"
+    - echo "Frontend image scriptify-frontend:latest"
     - echo "✅ All tests passed!"
   only:
     - main
@@ -64,24 +59,29 @@ test:
     - build-backend
     - build-frontend
 
-# Deploy stage (manual trigger)
+# Deploy stage (automatic deployment to localhost)
 deploy:
   stage: deploy
-  image: docker:24.0.5
+  tags:
+    - local
   script:
-    - echo "🚀 Deploying Application..."
-    - echo "Backend:" "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA"
-    - echo "Frontend:" "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA"
+    - echo "🚀 Deploying Application to Localhost..."
+    - echo "Stopping existing containers if running..."
+    - docker stop scriptify-backend scriptify-frontend || true
+    - docker rm scriptify-backend scriptify-frontend || true
+    - echo "Starting Backend on localhost:8000..."
+    - docker run -d --name scriptify-backend -p 8000:8000 scriptify-backend:latest
+    - echo "Starting Frontend on localhost:3000..."
+    - docker run -d --name scriptify-frontend -p 3000:80 scriptify-frontend:latest
     - echo "✅ Deployment completed!"
-    - echo "🌐 Application should be available shortly"
+    - echo "🌐 Application is now running on localhost"
     - echo ""
-    - echo "📱 Application URLs:"
-    - echo "🌐 Frontend - https://scriptify-frontend.herokuapp.com"
-    - echo "🔧 Backend API - https://scriptify-backend.herokuapp.com"
-    - echo "📖 API Documentation - https://scriptify-backend.herokuapp.com/docs"
-    - echo "🎥 YouTube Summarizer Ready to use!"
+    - echo "📱 Application URLs"
+    - echo "🌐 Frontend http://localhost:3000"
+    - echo "🔧 Backend API http://localhost:8000"
+    - echo "📖 API Documentation http://localhost:8000/docs"
+    - echo "🎥 YouTube Summarizer is ready to use!"
   only:
     - main
-  when: manual
   needs:
-    - test   # ✅ Corrected error here
+    - test
