@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ayushchoudhary6/scriptify-frontend:latest
+        image: scriptify-frontend:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 80
         
