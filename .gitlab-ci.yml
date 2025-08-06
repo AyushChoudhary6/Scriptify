@@ -59,34 +59,49 @@ test:
     - build-backend
     - build-frontend
 
-# Deploy stage (automatic deployment to localhost)
+# Deploy stage (automatic deployment to Kubernetes)
 deploy:
   stage: deploy
   tags:
     - local
+  before_script:
+    - kubectl cluster-info || (echo "❌ Kubernetes cluster not accessible" && exit 1)
+    - kubectl get nodes
   script:
-    - echo "🚀 Deploying Application to Localhost..."
-    - echo "Stopping existing containers if running..."
-    - docker stop scriptify-backend scriptify-frontend || true
-    - docker rm scriptify-backend scriptify-frontend || true
-    - echo "Removing existing Docker network if exists..."
-    - docker network rm scriptify-network || true
-    - echo "Creating Docker network for container communication..."
-    - docker network create scriptify-network
-    - echo "Starting Backend on localhost:8000..."
-    - docker run -d --name scriptify-backend --network scriptify-network -p 8000:8000 scriptify-backend:latest
-    - echo "Waiting for backend to start..."
+    - echo "🚀 Deploying Application to Kubernetes..."
+    - echo "🧹 Cleaning up existing deployments..."
+    - kubectl delete -f k8s/ --ignore-not-found=true
+    - echo "⏳ Waiting for cleanup to complete..."
+    - sleep 10
+    - echo "🔧 Applying Backend deployment and service..."
+    - kubectl apply -f k8s/backend-deployment.yml
+    - kubectl apply -f k8s/backend-service.yml
+    - echo "🎨 Applying Frontend deployment and service..."
+    - kubectl apply -f k8s/frontend-deployment.yml
+    - kubectl apply -f k8s/frontend-service.yml
+    - echo "🌐 Applying Ingress configuration..."
+    - kubectl apply -f k8s/ingress.yml || echo "⚠️  Ingress not applied (may not be needed for local setup)"
+    - echo "⏳ Waiting for deployments to be ready..."
+    - kubectl wait --for=condition=available --timeout=120s deployment/backend-deployment
+    - kubectl wait --for=condition=available --timeout=120s deployment/frontend-deployment
+    - echo "🔌 Setting up automatic port forwarding..."
+    - nohup kubectl port-forward service/frontend-service 3000:80 > /dev/null 2>&1 &
+    - nohup kubectl port-forward service/backend-service 8000:8000 > /dev/null 2>&1 &
     - sleep 5
-    - echo "Starting Frontend on localhost:3000..."
-    - docker run -d --name scriptify-frontend --network scriptify-network -p 3000:80 scriptify-frontend:latest
-    - echo "✅ Deployment completed!"
-    - echo "🌐 Application is now running on localhost"
+    - echo "✅ Deployment completed successfully!"
     - echo ""
-    - echo "📱 Application URLs"
-    - echo "🌐 Frontend http://localhost:3000"
-    - echo "🔧 Backend API http://localhost:8000"
-    - echo "📖 API Documentation http://localhost:8000/docs"
+    - echo "📊 Deployment Status:"
+    - kubectl get deployments
+    - kubectl get services
+    - kubectl get pods
+    - echo ""
+    - echo "📱 Application is now live and accessible:"
+    - echo "🌐 Frontend - http://localhost:3000"
+    - echo "🔧 Backend API - http://localhost:8000"
+    - echo "📖 API Documentation - http://localhost:8000/docs"
     - echo "🎥 YouTube Summarizer is ready to use!"
+    - echo ""
+    - echo "⚡ Application will remain accessible until the runner process stops"
   only:
     - main
   needs:
