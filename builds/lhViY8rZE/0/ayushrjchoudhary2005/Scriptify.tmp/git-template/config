@@ -1,0 +1,14 @@
+[init]
+	defaultBranch = none
+[fetch]
+	recurseSubmodules = false
+[credential]
+	interactive = never
+[gc]
+	autoDetach = false
+[http]
+	extraHeader = X-Gitaly-Correlation-ID: 6b84912890fa7e6a0882f2dd17801345
+[transfer]
+	bundleURI = true
+[http "https://gitlab.com"]
+	sslCAInfo = /media/ayush6/Work Drive1/projects/Scriptify/builds/lhViY8rZE/0/ayushrjchoudhary2005/Scriptify.tmp/CI_SERVER_TLS_CA_FILE
