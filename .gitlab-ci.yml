@@ -55,7 +55,7 @@ build-frontend:
     - echo "=== Pushing Frontend Image ==="
     - docker push $DOCKER_IMAGE_FRONTEND
 
-# 3️⃣ Deploy to Kubernetes
+# 3️⃣Deploy to Kubernetes
 deploy:
   stage: deploy
   tags:
