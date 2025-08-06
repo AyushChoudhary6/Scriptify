@@ -79,8 +79,12 @@ deploy:
     - echo "🎨 Applying Frontend deployment and service..."
     - kubectl apply -f k8s/frontend-deployment.yml
     - kubectl apply -f k8s/frontend-service.yml
+    - echo "🔐 Applying Secrets configuration..."
+    - kubectl apply -f k8s/secrets.yml || echo "⚠️  Secrets not applied (may need manual configuration)"
     - echo "🌐 Applying Ingress configuration..."
     - kubectl apply -f k8s/ingress.yml || echo "⚠️  Ingress not applied (may not be needed for local setup)"
+    - echo "📈 Applying HPA (Horizontal Pod Autoscaler)..."
+    - kubectl apply -f k8s/hpa.yml || echo "⚠️  HPA not applied (metrics server may be required)"
     - echo "⏳ Waiting for deployments to be ready..."
     - kubectl wait --for=condition=available --timeout=120s deployment/backend-deployment
     - kubectl wait --for=condition=available --timeout=120s deployment/frontend-deployment
