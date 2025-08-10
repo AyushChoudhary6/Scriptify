@@ -57,7 +57,7 @@ test-application:
   needs:
     - build-application
 
-# Deploy stage (automatic deployment to Kubernetes)
+#Deploy stage (automatic deployment to Kubernetes)
 deploy-application:
   stage: deploy
   tags:
@@ -86,10 +86,20 @@ deploy-application:
     - echo "⏳ Waiting for deployments to be ready..."
     - kubectl wait --for=condition=available --timeout=120s deployment/backend-deployment
     - kubectl wait --for=condition=available --timeout=120s deployment/frontend-deployment
-    - echo "🔌 Setting up automatic port forwarding..."
-    - nohup kubectl port-forward service/frontend-service 3000:80 > /dev/null 2>&1 &
-    - nohup kubectl port-forward service/backend-service 8000:8000 > /dev/null 2>&1 &
+    - echo "🔌 Setting up persistent port forwarding..."
+    - pkill -f "kubectl port-forward" || echo "No existing port-forward processes to kill"
+    - sleep 2
+    - echo "Starting background port forwarding processes..."
+    - nohup kubectl port-forward service/frontend-service 3000:80 </dev/null >/dev/null 2>&1 & echo $! > /tmp/frontend-pf.pid
+    - nohup kubectl port-forward service/backend-service 8000:8000 </dev/null >/dev/null 2>&1 & echo $! > /tmp/backend-pf.pid
     - sleep 5
+    - echo "Port forwarding processes started with PIDs:"
+    - cat /tmp/frontend-pf.pid 2>/dev/null || echo "Frontend PID not found"
+    - cat /tmp/backend-pf.pid 2>/dev/null || echo "Backend PID not found"
+    - echo "🧪 Verifying service accessibility..."
+    - sleep 3
+    - curl -f http://localhost:8000/ || echo "⚠️  Backend not accessible immediately"
+    - curl -f -I http://localhost:3000 || echo "⚠️  Frontend not accessible immediately"
     - echo "✅ Deployment completed successfully!"
     - echo ""
     - echo "📊 Deployment Status:"
