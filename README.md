@@ -178,7 +178,7 @@ The pipeline will automatically:
 - 🔄 **GitLab Runner**: For CI/CD pipeline execution
 - 🔑 **API Keys**: AssemblyAI and Gemini API access
 
-## 🎯 Usage
+##  Usage
 
 1. **Access the Application**: http://localhost:3000
 2. **Paste YouTube URL**: Any valid YouTube video link
