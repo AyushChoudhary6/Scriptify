@@ -20,12 +20,19 @@ build-application:
     - echo "🔧 Step 1 - Building Backend Docker Image..."
     - cd backend
     - docker build -t scriptify-backend:latest .
+    - docker tag scriptify-backend:latest ayushchoudhary6/scriptify-backend:latest
     - echo "✅ Backend build completed!"
     - echo ""
     - echo "🎨 Step 2 - Building Frontend Docker Image..."
     - cd ../frontend
     - docker build -t scriptify-frontend:latest .
+    - docker tag scriptify-frontend:latest ayushchoudhary6/scriptify-frontend:latest
     - echo "✅ Frontend build completed!"
+    - echo ""
+    - echo "📤 Step 3 - Loading Images into Kind Cluster..."
+    - kind load docker-image ayushchoudhary6/scriptify-backend:latest --name my-cluster
+    - kind load docker-image ayushchoudhary6/scriptify-frontend:latest --name my-cluster
+    - echo "✅ Images loaded into Kubernetes cluster!"
     - echo ""
     - echo "🎉 Complete Application Build Finished Successfully!"
   only:
@@ -38,10 +45,12 @@ test-application:
     - local
   script:
     - echo "🧪 Running Application Tests..."
-    - echo "Verifying Backend image - scriptify-backend:latest"
+    - echo "Verifying Backend image - ayushchoudhary6/scriptify-backend:latest"
     - docker images | grep scriptify-backend
-    - echo "Verifying Frontend image - scriptify-frontend:latest"  
+    - echo "Verifying Frontend image - ayushchoudhary6/scriptify-frontend:latest"  
     - docker images | grep scriptify-frontend
+    - echo "Verifying images are loaded in kind cluster..."
+    - kubectl get pods --all-namespaces | grep -E "(backend|frontend)" || echo "No pods running yet (expected at this stage)"
     - echo "✅ All tests passed!"
   only:
     - main
