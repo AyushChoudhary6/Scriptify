@@ -30,10 +30,10 @@ Scriptify is a modern web application that generates detailed, structured summar
 
 ### **CI/CD Pipeline Flow**
 ```
-Git Push → GitLab CI → Docker Build → Kubernetes Deploy → Live App
-    ↓           ↓           ↓             ↓            ↓
-  Code      Sequential    Images      K8s Manifests   Auto Port
- Changes    Build Jobs    Created      Applied       Forwarding
+Git Push → GitLab CI → Single Build Job → Test → Kubernetes Deploy → Live App
+    ↓           ↓            ↓            ↓          ↓              ↓
+  Code      Sequential   Backend+Frontend  Image    K8s Manifests   Auto Port
+ Changes    Execution      Images Built   Verify     Applied       Forwarding
 ```
 
 ## 🚀 Quick Start Guide
@@ -79,11 +79,10 @@ git push origin main
 ```
 
 The pipeline will automatically:
-- 🔧 Build backend Docker image
-- 🎨 Build frontend Docker image  
-- 🧪 Run tests
-- 🚀 Deploy to Kubernetes
-- 🌐 Set up port forwarding
+- 🔧 Build backend and frontend Docker images in sequence
+- 🧪 Run comprehensive image verification tests
+- 🚀 Deploy complete application to Kubernetes
+- 🌐 Set up automatic port forwarding
 - ✅ Make app accessible at localhost:3000
 
 ### **Option 2: Manual Deployment**
@@ -119,18 +118,24 @@ kubectl port-forward service/backend-service 8000:8000
 ## 🔧 DevOps Pipeline Details
 
 ### **GitLab CI/CD Stages**
-1. **🔧 Build Backend**: Docker image creation for FastAPI backend
-2. **🎨 Build Frontend**: Docker image creation for React frontend  
-3. **🧪 Test**: Validation of built images and application health
-4. **🚀 Deploy**: Kubernetes deployment with automatic port forwarding
+1. **🔧 Build**: Complete application build (Backend + Frontend in sequence)
+2. **🧪 Test**: Validation of built images and application health
+3. **🚀 Deploy**: Kubernetes deployment with automatic port forwarding
 
-### **Pipeline Features**
-- ✅ **Sequential Builds**: Backend → Frontend → Test → Deploy
+### **Single Pipeline Approach**
+- ✅ **Sequential Execution**: Build → Test → Deploy (one after another)
+- ✅ **Single Job per Stage**: No parallel executions, clean pipeline flow
 - ✅ **Local GitLab Runner**: Custom runner with "local" tag
+- ✅ **Dependency Management**: Each stage waits for the previous to complete
 - ✅ **Kubernetes Integration**: Complete k8s manifest application
 - ✅ **Auto Port Forwarding**: Immediate localhost access after deployment
-- ✅ **Health Checks**: Deployment readiness validation
-- ✅ **Resource Management**: HPA, Secrets, Ingress configuration
+
+The pipeline will automatically:
+- 🔧 Build backend and frontend Docker images sequentially
+- 🧪 Run comprehensive tests on built images
+- 🚀 Deploy to Kubernetes with all components
+- 🌐 Set up automatic port forwarding
+- ✅ Make app accessible at localhost:3000
 
 ### **Kubernetes Components Applied**
 - 📦 **Deployments**: backend-deployment.yml, frontend-deployment.yml
@@ -188,7 +193,7 @@ After successful deployment:
 - 📖 **API Documentation**: http://localhost:8000/docs
 - 🎥 **YouTube Summarizer**: Ready to use!
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`

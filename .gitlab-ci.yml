@@ -1,66 +1,55 @@
 stages:
-  - build-backend    # First stage: Build backend only
-  - build-frontend   # Second stage: Build frontend only  
-  - test            # Third stage: Test
-  - deploy          # Fourth stage: Deploy automatically
+  - build    # Single build stage for both backend and frontend
+  - test     # Test stage
+  - deploy   # Deploy stage
 
 variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
 
-# Build backend first
-build-backend:
-  stage: build-backend
+# Build both backend and frontend in sequence
+build-application:
+  stage: build
   tags:
     - local
   before_script:
     - docker info
   script:
-    - echo "🔧 Building Backend Docker Image..."
+    - echo "🚀 Starting Complete Application Build..."
+    - echo ""
+    - echo "🔧 Step 1 - Building Backend Docker Image..."
     - cd backend
     - docker build -t scriptify-backend:latest .
-    - echo "✅ Backend build completed successfully!"
-  only:
-    - main
-    - develop
-
-# Build frontend after backend completes
-build-frontend:
-  stage: build-frontend
-  tags:
-    - local
-  before_script:
-    - docker info
-  script:
-    - echo "🎨 Building Frontend Docker Image..."
-    - cd frontend
+    - echo "✅ Backend build completed!"
+    - echo ""
+    - echo "🎨 Step 2 - Building Frontend Docker Image..."
+    - cd ../frontend
     - docker build -t scriptify-frontend:latest .
-    - echo "✅ Frontend build completed successfully!"
+    - echo "✅ Frontend build completed!"
+    - echo ""
+    - echo "🎉 Complete Application Build Finished Successfully!"
   only:
     - main
-    - develop
-  needs:
-    - build-backend  # This ensures frontend builds only after backend completes
 
-# Test stage (runs after both builds complete)
-test:
+# Test stage (runs after build completes)
+test-application:
   stage: test
   tags:
     - local
   script:
     - echo "🧪 Running Application Tests..."
-    - echo "Backend image scriptify-backend:latest"
-    - echo "Frontend image scriptify-frontend:latest"
+    - echo "Verifying Backend image - scriptify-backend:latest"
+    - docker images | grep scriptify-backend
+    - echo "Verifying Frontend image - scriptify-frontend:latest"  
+    - docker images | grep scriptify-frontend
     - echo "✅ All tests passed!"
   only:
     - main
-    - develop
   needs:
-    - build-backend
-    - build-frontend
+    - build-application
 
 # Deploy stage (automatic deployment to Kubernetes)
-deploy:
+deploy-application:
   stage: deploy
   tags:
     - local
@@ -109,4 +98,4 @@ deploy:
   only:
     - main
   needs:
-    - test
+    - test-application
